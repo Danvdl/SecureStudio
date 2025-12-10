@@ -2,17 +2,18 @@
     "obs_width": 1280,
     "obs_height": 720,
     "fps": 30,
-    "confidence_threshold": 0.5,
-    "target_classes": [
-        73
-    ],
+    "confidence_threshold": 0.05,
+    "target_classes": [],
     "auto_blur": true,
     "show_preview": false,
     "use_custom_model": true,
     "custom_classes": [
-        "credit card",
-        "id card",
-        "passport",
-        "document"
-    ]
+        "credit card"
+    ],
+    "security_classes_enabled": [
+        "face"
+    ],
+    "model_size": "s",
+    "blur_style": "gaussian",
+    "smooth_factor": 0.9
 }

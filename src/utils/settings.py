@@ -13,8 +13,12 @@ DEFAULT_SETTINGS = {
     "auto_blur": True,
     "show_preview": False,
     "use_custom_model": False, # False = Standard COCO, True = YOLO-World
-    "custom_classes": ["credit card", "debit card", "id card", "passport", "driver license", "holding a credit card"], # Default custom prompts
-    "confidence_threshold": 0.25 # Lower default for better detection
+    "custom_classes": [], # User-typed custom prompts
+    "security_classes_enabled": ["credit card", "id card", "passport"], # Selected checkboxes
+    "confidence_threshold": 0.25, # Lower default for better detection
+    "model_size": "s", # s=Small (Fast), m=Medium (Balanced), l=Large (Accurate)
+    "blur_style": "pixelate", # "gaussian" or "pixelate"
+    "smooth_factor": 0.5 # 0.0 (No smoothing) to 0.9 (Heavy smoothing)
 }
 
 # Common COCO Classes for the UI
@@ -31,6 +35,20 @@ AVAILABLE_CLASSES = {
     26: "Handbag",
     77: "Teddy Bear"
 }
+
+# Common Security Prompts for YOLO-World
+SECURITY_CLASSES = [
+    "credit card",
+    "debit card",
+    "id card",
+    "passport",
+    "driver license",
+    "face",
+    "license plate",
+    "document with text",
+    "signature",
+    "qr code"
+]
 
 class SettingsManager:
     def __init__(self):
