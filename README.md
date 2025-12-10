@@ -1,53 +1,134 @@
+# BlurOBS
 
-# BlurOBS Live: Intelligent Privacy Shield for Streamers
+**AI-Powered Privacy Shield for OBS Studio**
 
-BlurOBS Live is a real-time "active defense" system for live streamers. It acts as a secure middleware between your webcam and OBS Studio, automatically detecting and blurring sensitive objects (smartphones, credit cards, ID documents) before they are broadcast to your audience.
+BlurOBS automatically detects and blurs sensitive content (faces, phones, credit cards, documents) in real-time before it reaches your stream.
 
-## Product Vision
-A desktop middleware that sits between a Webcam and OBS. It automatically detects sensitive objects (phones, credit cards, faces) and blurs them in real-time.
+---
 
-## The Tech Stack
+## 🚀 Quick Start
 
-| Component | Technology | Role |
-| :--- | :--- | :--- |
-| **Language** | Python 3.11 | High-performance logic. |
-| **Input/Output** | PyAV & PyVirtualCam | Low-latency video capture and Virtual Camera output. |
-| **Detector** | YOLOv8 Nano (Local) | Runs on CPU. Instantly spots where the object is. |
-| **Segmenter** | SAM 2 (Replicate API) | Runs in Cloud. Refines the "Box" into a "Perfect Shape." |
-| **Tracker** | OpenCV CSRT | Runs on CPU. Tracks the perfect shape locally between cloud calls. |
-| **GUI** | PyQt6 | Modern, hardware-accelerated user interface. |
+### For Users (Pre-built Release)
 
-## Roadmap
+1. **Download** `BlurOBS.exe` from [Releases](../../releases)
+2. **Install OBS Virtual Camera** (included with OBS Studio 26.0+)
+3. **Run** `BlurOBS.exe`
+4. **In OBS**: Add a Video Capture Device → Select "OBS Virtual Camera" or "BlurOBS"
 
-### Phase 1: The "Fast & Rough" MVP (Local Only)
-**Goal:** A working app that automatically blurs objects using a simple bounding box. No cloud integration yet. This ensures the app is "usable" even if the internet drops.
+### For Developers
 
-**The Video Pipeline:**
-*   Implement QThread with PyAV to capture webcam frames at 30fps.
-*   Push frames to pyvirtualcam so they appear in OBS.
+```bash
+# Clone the repository
+git clone https://github.com/Danvdl/BlurOBS.git
+cd BlurOBS
 
-**The "Spotter" (YOLO Integration):**
-*   Load `yolov8n.pt` (Nano model) locally.
-*   Run inference on every 3rd frame (to save CPU).
-*   If `class_id == 67` (Cell Phone), draw a Gaussian Blur over the detection box.
+# Create virtual environment
+python -m venv .venv
+.venv\Scripts\activate
 
-**The GUI:**
-*   Show the "Red Box" overlay in the app window (Director View) so the user knows protection is active.
+# Install dependencies
+pip install -r requirements.txt
 
-### Phase 2: The "Cloud Refiner" (Adding Replicate)
-**Goal:** Fix the "ugly box" problem. Use the Cloud API to turn the rough square blur into a precise object mask.
+# Run the application
+python run.py
+```
 
-**The Async API Call:**
-*   When YOLO detects a new object (stable for >10 frames), take a snapshot.
-*   Send this snapshot + the YOLO box coordinates to Replicate (Meta SAM 2).
-*   **Critical:** Do this in a separate thread so the video feed doesn't freeze.
+---
 
-**The Handoff:**
-*   While waiting for the Cloud (approx. 1-2s), keep using the Local YOLO Box.
-*   When Replicate returns the High-Res Mask:
-    *   Stop using the YOLO Box.
-    *   Initialize a local OpenCV Tracker (CSRT) with the new high-res mask.
-*   Now the blur perfectly hugs the shape of the phone.
+## 🎯 Features
+
+- **Real-time Object Detection** - YOLOv8/YOLO-World AI models
+- **Smart Tracking** - Objects stay blurred even during fast motion
+- **Security Mode** - Detect credit cards, IDs, documents
+- **Multiple Blur Styles** - Gaussian, Pixelate, Solid black
+- **GPU Acceleration** - CUDA support for NVIDIA GPUs
+- **1080p Support** - Full HD output with optimized performance
+
+---
+
+## ⚙️ Settings
+
+| Setting | Description |
+|---------|-------------|
+| **Standard Mode** | Blur common objects (phones, laptops, faces) |
+| **Security Mode** | Custom detection (credit cards, documents) |
+| **Blur Style** | Gaussian / Pixelate / Solid |
+| **Smoothing** | Reduce jitter (0.0 - 0.9) |
+| **Confidence** | Detection sensitivity (0.1 - 0.9) |
+
+---
+
+## 🔧 Building from Source
+
+```bash
+# Install PyInstaller
+pip install pyinstaller
+
+# Build executable (Windows)
+build.bat
+
+# Or manually:
+pyinstaller BlurOBS.spec --clean
+```
+
+Output: `dist/BlurOBS.exe`
+
+---
+
+## 📋 System Requirements
+
+- **OS:** Windows 10/11
+- **OBS:** OBS Studio 26.0+ (for virtual camera support)
+- **GPU:** NVIDIA GPU with CUDA (optional, for acceleration)
+- **RAM:** 4GB minimum, 8GB recommended
+
+---
+
+## 🐛 Troubleshooting
+
+**"Virtual Camera Failed"**
+- Ensure OBS is installed with Virtual Camera feature
+- Try running OBS once to initialize the virtual camera
+
+**"Camera Not Found"**
+- Close other apps using the camera
+- Check camera permissions in Windows Settings
+
+**Low FPS**
+- Enable GPU acceleration (requires NVIDIA + CUDA)
+- Reduce resolution in settings
+- Switch to Standard Mode (faster than Security Mode)
+
+---
+
+## 🏗️ Architecture
+
+```
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│   Webcam    │────▶│  BlurOBS    │────▶│  OBS Studio │
+│             │     │  (AI + Blur)│     │  (Virtual   │
+└─────────────┘     └─────────────┘     │   Camera)   │
+                                        └─────────────┘
+```
+
+| Component | Technology |
+|-----------|------------|
+| **Detection** | YOLOv8 / YOLO-World |
+| **Tracking** | ByteTrack |
+| **GUI** | PyQt6 |
+| **Virtual Cam** | pyvirtualcam |
+
+---
+
+## 📄 License
+
+MIT License - See [LICENSE](LICENSE) for details.
+
+## 🙏 Credits
+
+- [Ultralytics YOLOv8](https://github.com/ultralytics/ultralytics)
+- [PyVirtualCam](https://github.com/letmaik/pyvirtualcam)
+- [PyQt6](https://www.riverbankcomputing.com/software/pyqt/)
 
 ### Phase 3: The "Streamer Experience" (UX) - **Implemented**
 **Goal:** Features that make the app safe and trustworthy for live broadcasting.

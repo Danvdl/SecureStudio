@@ -7,11 +7,17 @@ from PyQt6.QtGui import QPixmap, QIcon
 from src.core.video_thread import VideoWorker
 from src.ui.styles import DARK_THEME
 from src.ui.settings_dialog import SettingsDialog
+from src.utils.config import get_resource_path
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("BlurOBS - AI Privacy Shield")
+        
+        # Set Window Icon
+        icon_path = get_resource_path("assets/BLUROBS_ICON.png")
+        self.setWindowIcon(QIcon(icon_path))
+
         self.resize(1000, 800)
         self.setStyleSheet(DARK_THEME)
         
@@ -26,6 +32,16 @@ class MainWindow(QMainWindow):
 
         # --- Header ---
         header_layout = QHBoxLayout()
+        
+        # Logo
+        logo_label = QLabel()
+        logo_path = get_resource_path("assets/BLUROBS.png")
+        logo_pixmap = QPixmap(logo_path)
+        if not logo_pixmap.isNull():
+             logo_pixmap = logo_pixmap.scaledToHeight(40, Qt.TransformationMode.SmoothTransformation)
+             logo_label.setPixmap(logo_pixmap)
+             header_layout.addWidget(logo_label)
+
         title_label = QLabel("BlurOBS Studio")
         title_label.setStyleSheet("font-size: 24px; font-weight: bold; color: #ffffff;")
         header_layout.addWidget(title_label)

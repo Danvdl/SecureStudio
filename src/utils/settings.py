@@ -5,17 +5,16 @@ import logging
 SETTINGS_FILE = "settings.json"
 
 DEFAULT_SETTINGS = {
-    "obs_width": 1280,
-    "obs_height": 720,
+    "obs_width": 1920,
+    "obs_height": 1080,
     "fps": 30,
-    "confidence_threshold": 0.5,
     "target_classes": [67],  # Default: Cell Phone
     "auto_blur": True,
     "show_preview": False,
     "use_custom_model": False, # False = Standard COCO, True = YOLO-World
     "custom_classes": [], # User-typed custom prompts
     "security_classes_enabled": ["credit card", "id card", "passport"], # Selected checkboxes
-    "confidence_threshold": 0.25, # Lower default for better detection
+    "confidence_threshold": 0.3, # Balanced threshold
     "model_size": "s", # s=Small (Fast), m=Medium (Balanced), l=Large (Accurate)
     "blur_style": "pixelate", # "gaussian" or "pixelate"
     "smooth_factor": 0.5 # 0.0 (No smoothing) to 0.9 (Heavy smoothing)

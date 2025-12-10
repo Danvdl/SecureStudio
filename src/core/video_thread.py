@@ -3,6 +3,7 @@ import numpy as np
 import pyvirtualcam
 import logging
 import time
+import torch
 from ultralytics import YOLO
 from PyQt6.QtCore import QThread, pyqtSignal
 from PyQt6.QtGui import QImage
@@ -15,6 +16,8 @@ class VideoWorker(QThread):
     def __init__(self):
         super().__init__()
         self.running = True
+        self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        logging.info(f"Using inference device: {self.device}")
         self.auto_blur_enabled = settings_manager.get("auto_blur")
         self.show_output = settings_manager.get("show_preview")
         self.target_classes = settings_manager.get("target_classes")
@@ -28,8 +31,13 @@ class VideoWorker(QThread):
         self.model_type = None # 'standard' or 'world'
         
         # Persistence State
-        self.active_blurs = [] # List of dicts: {'box': [x1,y1,x2,y2], 'label': str, 'last_seen': time.time()}
+        # Each entry: {track_id: {'box': [x1,y1,x2,y2], 'velocity': [vx1,vy1,vx2,vy2], 'label': str, 'last_seen': time.time()}}
+        self.active_blurs = {}
         self.persistence_duration = 0.5 # Seconds to keep blur alive after detection loss
+        
+        # Skip-Frame Detection: Run AI every N frames, interpolate in between
+        self.detection_interval = 2  # Run detection every 2nd frame
+        self.frame_counter = 0
 
     def _get_combined_classes(self):
         # Combine checkbox selections with manual text input and deduplicate
@@ -67,6 +75,7 @@ class VideoWorker(QThread):
                 self.status_signal.emit(f"Loading YOLO-World {self.model_size.upper()} (Security Mode)...")
                 logging.info(f"Loading {model_name}...")
                 self.model = YOLO(model_name)
+                self.model.to(self.device)
                 self.model_type = f'world-{self.model_size}'
             
             # Set custom classes
@@ -78,14 +87,15 @@ class VideoWorker(QThread):
                 
             self.model.set_classes(self.custom_classes)
             # World models often need lower confidence for custom prompts
-            if self.conf_threshold > 0.3:
-                logging.info("Lowering confidence threshold for World model to 0.2")
-                self.conf_threshold = 0.2
+            # if self.conf_threshold > 0.3:
+            #    logging.info("Lowering confidence threshold for World model to 0.2")
+            #    self.conf_threshold = 0.2
         else:
             if self.model_type != 'standard':
                 self.status_signal.emit("Loading Standard AI Model...")
                 logging.info("Loading YOLOv8 Nano...")
                 self.model = YOLO('yolov8n.pt')
+                self.model.to(self.device)
                 self.model_type = 'standard'
 
     def apply_blur_effect(self, img, x1, y1, x2, y2):
@@ -117,7 +127,7 @@ class VideoWorker(QThread):
         else: # "gaussian" or default
             # Heavy Gaussian Blur
             # Kernel size must be odd
-            ksize = 51
+            ksize = 25
             # Ensure ksize is not larger than ROI
             ksize = min(ksize, min(roi.shape[:2])) | 1 
             if ksize > 1:
@@ -180,104 +190,171 @@ class VideoWorker(QThread):
                     if self.model is None:
                         self.load_model()
 
-                    # Run YOLO inference
-                    results = self.model(img, verbose=False, conf=self.conf_threshold)
+                    self.frame_counter += 1
+                    run_detection = (self.frame_counter % self.detection_interval == 0)
                     
-                    # Collect new detections
-                    new_detections = []
-                    
-                    for result in results:
-                        for box in result.boxes:
-                            cls_id = int(box.cls[0])
-                            
-                            # Logic for Standard vs World
-                            should_blur = False
-                            if self.use_custom_model:
-                                # In World mode, we blur EVERYTHING detected because we only set specific classes
-                                should_blur = True
-                            else:
-                                # In Standard mode, we check against the target list
-                                if cls_id in self.target_classes:
-                                    should_blur = True
-                            
-                            if should_blur:
-                                x1, y1, x2, y2 = map(float, box.xyxy[0]) # Use float for smoothing
-                                label = "BLURRED"
-                                if self.use_custom_model and result.names:
-                                    label = result.names[cls_id]
-                                new_detections.append({'box': [x1, y1, x2, y2], 'label': label})
+                    # --- Skip-Frame: Only run AI every N frames ---
+                    if run_detection:
+                        # --- Downscale for fast inference (e.g., 640x360) ---
+                        INFERENCE_WIDTH = 640
+                        INFERENCE_HEIGHT = int(INFERENCE_WIDTH * (height / width)) # Maintain aspect ratio
+                        
+                        # 1. Create a smaller frame for the AI model
+                        inference_img = cv2.resize(img, (INFERENCE_WIDTH, INFERENCE_HEIGHT))
 
-                    # Update Active Blurs (Persistence & Smoothing Logic)
-                    next_active_blurs = []
-                    used_old_indices = set()
-                    
-                    # Match new detections to old active blurs for smoothing
-                    for det in new_detections:
-                        # Find best match in active_blurs
-                        best_iou = 0
-                        best_idx = -1
-                        dx1, dy1, dx2, dy2 = det['box']
-                        det_area = (dx2 - dx1) * (dy2 - dy1)
+                        # 2. Run YOLO inference on the smaller frame
+                        # Use tracking (persist=True) for temporal consistency
+                        results = self.model.track(inference_img, verbose=False, conf=self.conf_threshold, device=self.device, persist=True, tracker="bytetrack.yaml")
                         
-                        for i, old in enumerate(self.active_blurs):
-                            if i in used_old_indices: continue
-                            
-                            ox1, oy1, ox2, oy2 = old['box']
-                            
-                            # Calculate IoU
-                            ix1 = max(dx1, ox1)
-                            iy1 = max(dy1, oy1)
-                            ix2 = min(dx2, ox2)
-                            iy2 = min(dy2, oy2)
-                            
-                            if ix2 > ix1 and iy2 > iy1:
-                                intersection = (ix2 - ix1) * (iy2 - iy1)
-                                old_area = (ox2 - ox1) * (oy2 - oy1)
-                                union = det_area + old_area - intersection
-                                iou = intersection / union if union > 0 else 0
-                                
-                                if iou > 0.3: # Threshold to consider it the same object
-                                    if iou > best_iou:
-                                        best_iou = iou
-                                        best_idx = i
+                        # Calculate the scaling factors
+                        scale_x = width / INFERENCE_WIDTH
+                        scale_y = height / INFERENCE_HEIGHT
+
+                        # Collect new detections
+                        current_frame_ids = set()
                         
-                        if best_idx != -1:
-                            # Match found, apply smoothing
-                            old_box = self.active_blurs[best_idx]['box']
-                            new_box = det['box']
-                            
-                            # Smooth: smoothed = old * factor + new * (1 - factor)
-                            s_box = []
-                            for o, n in zip(old_box, new_box):
-                                val = o * self.smooth_factor + n * (1.0 - self.smooth_factor)
-                                s_box.append(val)
+                        for result in results:
+                            if result.boxes:
+                                # Extract boxes, classes, and IDs (if available)
+                                boxes = result.boxes.xyxy.cpu().numpy()
+                                clss = result.boxes.cls.cpu().numpy()
+                                ids = result.boxes.id.cpu().numpy() if result.boxes.id is not None else None
                                 
-                            next_active_blurs.append({
-                                'box': s_box,
-                                'label': det['label'],
-                                'last_seen': current_time
-                            })
-                            used_old_indices.add(best_idx)
-                        else:
-                            # No match, new object
-                            next_active_blurs.append({
-                                'box': det['box'],
-                                'label': det['label'],
-                                'last_seen': current_time
-                            })
-                            
-                    # Add remaining old blurs (Persistence)
-                    for i, old in enumerate(self.active_blurs):
-                        if i not in used_old_indices:
-                            if current_time - old['last_seen'] < self.persistence_duration:
-                                next_active_blurs.append(old)
-                    
-                    self.active_blurs = next_active_blurs
+                                for i, box in enumerate(boxes):
+                                    cls_id = int(clss[i])
+                                    track_id = int(ids[i]) if ids is not None else -1
+                                    
+                                    # Logic for Standard vs World
+                                    should_blur = False
+                                    if self.use_custom_model:
+                                        # Strict Filter: Only blur if the detected name matches our custom list
+                                        # This prevents "leaked" COCO classes (like 'bed') from appearing
+                                        detected_name = result.names[cls_id]
+                                        if detected_name in self.custom_classes:
+                                            should_blur = True
+                                    else:
+                                        if cls_id in self.target_classes:
+                                            should_blur = True
+                                    
+                                    if should_blur:
+                                        # Get bounding box coordinates from the smaller image
+                                        x1_small, y1_small, x2_small, y2_small = box
+                                        
+                                        # 3. Rescale coordinates to the original 1080p size
+                                        x1 = x1_small * scale_x
+                                        y1 = y1_small * scale_y
+                                        x2 = x2_small * scale_x
+                                        y2 = y2_small * scale_y
+                                        
+                                        new_box = [x1, y1, x2, y2]
+                                        label = "BLURRED"
+                                        if self.use_custom_model and result.names:
+                                            label = result.names[cls_id]
+                                        
+                                        # If we have a track ID, use it for smoothing
+                                        if track_id != -1:
+                                            current_frame_ids.add(track_id)
+                                            if track_id in self.active_blurs:
+                                                # Get previous state
+                                                old_data = self.active_blurs[track_id]
+                                                old_box = old_data['box']
+                                                old_velocity = old_data.get('velocity', [0, 0, 0, 0])
+                                                
+                                                # Calculate new velocity (change per frame)
+                                                new_velocity = [n - o for o, n in zip(old_box, new_box)]
+                                                
+                                                # Adaptive smoothing: less smoothing when moving fast
+                                                speed = sum(abs(v) for v in new_velocity) / 4
+                                                adaptive_smooth = self.smooth_factor
+                                                if speed > 20:  # Fast motion threshold
+                                                    adaptive_smooth = max(0.1, self.smooth_factor - 0.3)
+                                                
+                                                # Smooth the box position
+                                                s_box = []
+                                                for o, n in zip(old_box, new_box):
+                                                    val = o * adaptive_smooth + n * (1.0 - adaptive_smooth)
+                                                    s_box.append(val)
+                                                
+                                                # Box size stabilization: prevent "breathing"
+                                                old_w = old_box[2] - old_box[0]
+                                                old_h = old_box[3] - old_box[1]
+                                                new_w = s_box[2] - s_box[0]
+                                                new_h = s_box[3] - s_box[1]
+                                                
+                                                # If size change is small (<5%), keep old size
+                                                if abs(new_w - old_w) / max(old_w, 1) < 0.05:
+                                                    center_x = (s_box[0] + s_box[2]) / 2
+                                                    s_box[0] = center_x - old_w / 2
+                                                    s_box[2] = center_x + old_w / 2
+                                                if abs(new_h - old_h) / max(old_h, 1) < 0.05:
+                                                    center_y = (s_box[1] + s_box[3]) / 2
+                                                    s_box[1] = center_y - old_h / 2
+                                                    s_box[3] = center_y + old_h / 2
+                                                
+                                                # Smooth velocity for prediction
+                                                s_velocity = [ov * 0.5 + nv * 0.5 for ov, nv in zip(old_velocity, new_velocity)]
+                                                
+                                                self.active_blurs[track_id] = {
+                                                    'box': s_box,
+                                                    'velocity': s_velocity,
+                                                    'label': label,
+                                                    'last_seen': current_time
+                                                }
+                                            else:
+                                                # New track
+                                                self.active_blurs[track_id] = {
+                                                    'box': new_box,
+                                                    'velocity': [0, 0, 0, 0],
+                                                    'label': label,
+                                                    'last_seen': current_time
+                                                }
+                                        else:
+                                            # Fallback for no ID
+                                            temp_id = -1000 - i
+                                            self.active_blurs[temp_id] = {
+                                                'box': new_box,
+                                                'velocity': [0, 0, 0, 0],
+                                                'label': label,
+                                                'last_seen': current_time
+                                            }
+                                            current_frame_ids.add(temp_id)
+                    else:
+                        # Non-detection frame: Predict positions using velocity
+                        current_frame_ids = set(self.active_blurs.keys())
+                        for tid, data in self.active_blurs.items():
+                            if tid >= 0:  # Only predict for tracked objects
+                                velocity = data.get('velocity', [0, 0, 0, 0])
+                                # Apply velocity prediction
+                                predicted_box = [b + v for b, v in zip(data['box'], velocity)]
+                                data['box'] = predicted_box
+
+                    # Prune old blurs (Persistence)
+                    keys_to_remove = []
+                    for tid, data in self.active_blurs.items():
+                        if current_time - data['last_seen'] > self.persistence_duration:
+                            keys_to_remove.append(tid)
+                        elif tid < -900 and tid not in current_frame_ids:
+                             # Remove temporary IDs immediately if not in current frame
+                             keys_to_remove.append(tid)
+                             
+                    for k in keys_to_remove:
+                        del self.active_blurs[k]
                     
                     # Apply Blurs
-                    for blur in self.active_blurs:
+                    for blur in self.active_blurs.values():
                         # Convert float box to int for drawing
                         x1, y1, x2, y2 = map(int, blur['box'])
+                        
+                        # --- SMART ADDITION: Padding ---
+                        # Add 15% padding to ensure coverage
+                        pad_x = int((x2 - x1) * 0.15)
+                        pad_y = int((y2 - y1) * 0.15)
+
+                        x1 = max(0, x1 - pad_x)
+                        y1 = max(0, y1 - pad_y)
+                        x2 = min(width, x2 + pad_x)
+                        y2 = min(height, y2 + pad_y)
+                        # -------------------------------
                         
                         # Apply the selected blur effect
                         self.apply_blur_effect(img, x1, y1, x2, y2)
