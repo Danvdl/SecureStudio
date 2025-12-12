@@ -46,7 +46,11 @@ SECURITY_CLASSES = [
     "license plate",
     "document with text",
     "signature",
-    "qr code"
+    "qr code",
+    "naked person",
+    "exposed chest",
+    "buttocks",
+    "underwear"
 ]
 
 class SettingsManager:
