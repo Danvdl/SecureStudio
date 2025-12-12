@@ -6,7 +6,7 @@ BlurOBS automatically detects and blurs sensitive content (faces, phones, credit
 
 ---
 
-## 🚀 Quick Start
+##  Quick Start
 
 ### For Users (Pre-built Release)
 
@@ -35,7 +35,7 @@ python run.py
 
 ---
 
-## 🎯 Features
+##  Features
 
 - **Real-time Object Detection** - YOLOv8/YOLO-World AI models
 - **Smart Tracking** - Objects stay blurred even during fast motion
@@ -46,7 +46,7 @@ python run.py
 
 ---
 
-## ⚙️ Settings
+##  Settings
 
 | Setting | Description |
 |---------|-------------|
@@ -58,7 +58,7 @@ python run.py
 
 ---
 
-## 🔧 Building from Source
+##  Building from Source
 
 ```bash
 # Install PyInstaller
@@ -75,7 +75,7 @@ Output: `dist/BlurOBS.exe`
 
 ---
 
-## 📋 System Requirements
+##  System Requirements
 
 - **OS:** Windows 10/11
 - **OBS:** OBS Studio 26.0+ (for virtual camera support)
@@ -84,7 +84,7 @@ Output: `dist/BlurOBS.exe`
 
 ---
 
-## 🐛 Troubleshooting
+##  Troubleshooting
 
 **"Virtual Camera Failed"**
 - Ensure OBS is installed with Virtual Camera feature
@@ -101,7 +101,7 @@ Output: `dist/BlurOBS.exe`
 
 ---
 
-## 🏗️ Architecture
+##  Architecture
 
 ```
 ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
@@ -120,11 +120,11 @@ Output: `dist/BlurOBS.exe`
 
 ---
 
-## 📄 License
+##  License
 
 MIT License - See [LICENSE](LICENSE) for details.
 
-## 🙏 Credits
+##  Credits
 
 - [Ultralytics YOLOv8](https://github.com/ultralytics/ultralytics)
 - [PyVirtualCam](https://github.com/letmaik/pyvirtualcam)
