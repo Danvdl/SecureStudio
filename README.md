@@ -40,6 +40,7 @@ python run.py
 - **Real-time Object Detection** - YOLOv8/YOLO-World AI models
 - **Smart Tracking** - Objects stay blurred even during fast motion
 - **Security Mode** - Detect credit cards, IDs, documents
+- **Nudity Filtering** - Detect and blur exposed skin/nudity (Security Mode)
 - **Multiple Blur Styles** - Gaussian, Pixelate, Solid black
 - **GPU Acceleration** - CUDA support for NVIDIA GPUs
 - **1080p Support** - Full HD output with optimized performance
@@ -51,7 +52,7 @@ python run.py
 | Setting | Description |
 |---------|-------------|
 | **Standard Mode** | Blur common objects (phones, laptops, faces) |
-| **Security Mode** | Custom detection (credit cards, documents) |
+| **Security Mode** | Custom detection (credit cards, documents, nudity) |
 | **Blur Style** | Gaussian / Pixelate / Solid |
 | **Smoothing** | Reduce jitter (0.0 - 0.9) |
 | **Confidence** | Detection sensitivity (0.1 - 0.9) |
