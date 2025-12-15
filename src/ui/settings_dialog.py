@@ -5,6 +5,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt
 from src.utils.settings import settings_manager, AVAILABLE_CLASSES, SECURITY_CLASSES
+from src.utils.logger import log_event
 
 class SettingsDialog(QDialog):
     def __init__(self, parent=None):
@@ -220,6 +221,16 @@ class SettingsDialog(QDialog):
         raw_text = self.custom_input.text()
         custom_list = [x.strip() for x in raw_text.split(",") if x.strip()]
         settings_manager.set("custom_classes", custom_list)
+        
+        # Log settings change event
+        log_event("SETTINGS", "Settings saved",
+                  mode="security" if use_custom else "standard",
+                  model_size=size,
+                  confidence=conf,
+                  blur_style=self.blur_combo.currentData(),
+                  target_count=len(new_targets),
+                  security_classes=len(new_sec),
+                  custom_classes=len(custom_list))
         
         super().accept()
         

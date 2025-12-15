@@ -8,14 +8,15 @@ from src.core.video_thread import VideoWorker
 from src.ui.styles import DARK_THEME
 from src.ui.settings_dialog import SettingsDialog
 from src.utils.config import get_resource_path
+from src.utils.logger import log_event
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("BlurOBS - AI Privacy Shield")
+        self.setWindowTitle("SecureStudio - AI Privacy Shield")
         
         # Set Window Icon
-        icon_path = get_resource_path("assets/BLUROBS_ICON.png")
+        icon_path = get_resource_path("assets/SecureStudio.ico")
         self.setWindowIcon(QIcon(icon_path))
 
         self.resize(1000, 800)
@@ -35,14 +36,14 @@ class MainWindow(QMainWindow):
         
         # Logo
         logo_label = QLabel()
-        logo_path = get_resource_path("assets/BLUROBS.png")
+        logo_path = get_resource_path("assets/SS_LOGO.jpg")
         logo_pixmap = QPixmap(logo_path)
         if not logo_pixmap.isNull():
              logo_pixmap = logo_pixmap.scaledToHeight(40, Qt.TransformationMode.SmoothTransformation)
              logo_label.setPixmap(logo_pixmap)
              header_layout.addWidget(logo_label)
 
-        title_label = QLabel("BlurOBS Studio")
+        title_label = QLabel("SecureStudio")
         title_label.setStyleSheet("font-size: 24px; font-weight: bold; color: #ffffff;")
         header_layout.addWidget(title_label)
         
@@ -118,12 +119,17 @@ class MainWindow(QMainWindow):
         self.thread.start()
 
     def toggle_blur(self, state):
-        self.thread.auto_blur_enabled = (state == 2) # 2 is Checked
+        enabled = (state == 2)  # 2 is Checked
+        self.thread.auto_blur_enabled = enabled
+        log_event("UI", "Auto-blur toggled", enabled=enabled)
 
     def toggle_preview(self, state):
-        self.thread.show_output = (state == 2)
+        show_output = (state == 2)
+        self.thread.show_output = show_output
+        log_event("UI", "Preview mode toggled", show_output=show_output)
 
     def open_settings(self):
+        log_event("UI", "Settings dialog opened")
         dialog = SettingsDialog(self)
         if dialog.exec():
             # Reload settings in the worker thread
@@ -144,5 +150,6 @@ class MainWindow(QMainWindow):
         self.image_label.setPixmap(scaled_pixmap)
 
     def closeEvent(self, event):
+        log_event("UI", "Application closing")
         self.thread.stop()
         event.accept()

@@ -1,18 +1,24 @@
 {
-    "obs_width": 1280,
-    "obs_height": 720,
+    "setup_complete": true,
+    "terms_accepted": true,
+    "share_diagnostic_logs": true,
+    "obs_width": 1920,
+    "obs_height": 1080,
     "fps": 30,
-    "target_classes": [],
+    "target_classes": [
+        67
+    ],
     "auto_blur": true,
     "show_preview": false,
-    "use_custom_model": true,
+    "use_custom_model": false,
     "custom_classes": [],
     "security_classes_enabled": [
         "credit card",
-        "id card"
+        "id card",
+        "passport"
     ],
-    "confidence_threshold": 0.01,
+    "confidence_threshold": 0.3,
     "model_size": "s",
-    "blur_style": "gaussian",
-    "smooth_factor": 0.9
+    "blur_style": "pixelate",
+    "smooth_factor": 0.5
 }
