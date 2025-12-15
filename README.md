@@ -1,8 +1,8 @@
-# BlurOBS
+# SecureStudio
 
 **AI-Powered Privacy Shield for OBS Studio**
 
-BlurOBS automatically detects and blurs sensitive content (faces, phones, credit cards, documents) in real-time before it reaches your stream.
+SecureStudio automatically detects and blurs sensitive content (faces, phones, credit cards, documents) in real-time before it reaches your stream.
 
 ---
 
@@ -10,17 +10,17 @@ BlurOBS automatically detects and blurs sensitive content (faces, phones, credit
 
 ### For Users (Pre-built Release)
 
-1. **Download** `BlurOBS.exe` from [Releases](../../releases)
+1. **Download** `SecureStudio.exe` from [Releases](../../releases)
 2. **Install OBS Virtual Camera** (included with OBS Studio 26.0+)
-3. **Run** `BlurOBS.exe`
-4. **In OBS**: Add a Video Capture Device → Select "OBS Virtual Camera" or "BlurOBS"
+3. **Run** `SecureStudio.exe` and complete the setup wizard
+4. **In OBS**: Add a Video Capture Device → Select "OBS Virtual Camera"
 
 ### For Developers
 
 ```bash
 # Clone the repository
-git clone https://github.com/Danvdl/BlurOBS.git
-cd BlurOBS
+git clone https://github.com/Danvdl/SecureStudio.git
+cd SecureStudio
 
 # Create virtual environment
 python -m venv .venv
@@ -85,7 +85,26 @@ Output: `dist/BlurOBS.exe`
 
 ---
 
-## 🐛 Troubleshooting
+## � Logging
+
+BlurOBS includes a comprehensive logging system for debugging and event tracking.
+
+**Log Location:** `%USERPROFILE%\.blurobs\logs\`
+
+| Log File | Purpose |
+|----------|---------|
+| `debug.log` | All application events (verbose) |
+| `error.log` | Warnings and errors only |
+| `events.log` | User actions and app events |
+
+**Debug Mode:** Run with `--debug` flag for verbose console output:
+```bash
+python run.py --debug
+```
+
+---
+
+## �🐛 Troubleshooting
 
 **"Virtual Camera Failed"**
 - Ensure OBS is installed with Virtual Camera feature

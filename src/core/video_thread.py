@@ -8,6 +8,7 @@ from ultralytics import YOLO
 from PyQt6.QtCore import QThread, pyqtSignal
 from PyQt6.QtGui import QImage
 from src.utils.settings import settings_manager
+from src.utils.logger import log_event, log_error, set_video_thread_status, set_app_phase
 
 class VideoWorker(QThread):
     change_pixmap_signal = pyqtSignal(QImage)
@@ -18,6 +19,7 @@ class VideoWorker(QThread):
         self.running = True
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         logging.info(f"Using inference device: {self.device}")
+        log_event("MODEL", "Inference device selected", device=self.device, cuda_available=torch.cuda.is_available())
         self.auto_blur_enabled = settings_manager.get("auto_blur")
         self.show_output = settings_manager.get("show_preview")
         self.target_classes = settings_manager.get("target_classes")
@@ -38,6 +40,10 @@ class VideoWorker(QThread):
         # Skip-Frame Detection: Run AI every N frames, interpolate in between
         self.detection_interval = 2  # Run detection every 2nd frame
         self.frame_counter = 0
+        
+        # Stats tracking for logging
+        self._detection_count = 0
+        self._last_stats_log = time.time()
 
     def _get_combined_classes(self):
         # Combine checkbox selections with manual text input and deduplicate
@@ -57,6 +63,10 @@ class VideoWorker(QThread):
         
         # Reload if mode changed OR size changed
         if new_use_custom != self.use_custom_model or new_model_size != self.model_size:
+            log_event("SETTINGS", "Model mode changed", 
+                     old_mode="security" if self.use_custom_model else "standard",
+                     new_mode="security" if new_use_custom else "standard",
+                     model_size=new_model_size)
             self.use_custom_model = new_use_custom
             self.model_size = new_model_size
             self.model = None # Force reload
@@ -64,6 +74,7 @@ class VideoWorker(QThread):
             self.custom_classes = new_custom_classes
             if self.model:
                 logging.info(f"Updating custom classes: {self.custom_classes}")
+                log_event("SETTINGS", "Custom classes updated", classes=str(self.custom_classes))
                 self.model.set_classes(self.custom_classes)
 
     def load_model(self):
@@ -74,9 +85,15 @@ class VideoWorker(QThread):
             if self.model_type != f'world-{self.model_size}':
                 self.status_signal.emit(f"Loading YOLO-World {self.model_size.upper()} (Security Mode)...")
                 logging.info(f"Loading {model_name}...")
-                self.model = YOLO(model_name)
-                self.model.to(self.device)
-                self.model_type = f'world-{self.model_size}'
+                log_event("MODEL", "Loading YOLO-World model", model=model_name, mode="security")
+                try:
+                    self.model = YOLO(model_name)
+                    self.model.to(self.device)
+                    self.model_type = f'world-{self.model_size}'
+                    log_event("MODEL", "Model loaded successfully", model=model_name, device=self.device)
+                except Exception as e:
+                    log_error(e, f"Failed to load model {model_name}")
+                    raise
             
             # Set custom classes
             self.custom_classes = self._get_combined_classes()
@@ -94,9 +111,15 @@ class VideoWorker(QThread):
             if self.model_type != 'standard':
                 self.status_signal.emit("Loading Standard AI Model...")
                 logging.info("Loading YOLOv8 Nano...")
-                self.model = YOLO('yolov8n.pt')
-                self.model.to(self.device)
-                self.model_type = 'standard'
+                log_event("MODEL", "Loading standard model", model="yolov8n.pt", mode="standard")
+                try:
+                    self.model = YOLO('yolov8n.pt')
+                    self.model.to(self.device)
+                    self.model_type = 'standard'
+                    log_event("MODEL", "Model loaded successfully", model="yolov8n.pt", device=self.device)
+                except Exception as e:
+                    log_error(e, "Failed to load standard model")
+                    raise
 
     def apply_blur_effect(self, img, x1, y1, x2, y2):
         # Ensure bounds
@@ -135,41 +158,54 @@ class VideoWorker(QThread):
                 img[y1:y2, x1:x2] = blurred
 
     def run(self):
+        set_video_thread_status(True)
         width = settings_manager.get("obs_width")
         height = settings_manager.get("obs_height")
         fps = settings_manager.get("fps")
 
         # 1. Load YOLO Model
+        set_app_phase("model_loading")
         if self.model is None:
             self.load_model()
 
         # 2. Open Camera
+        set_app_phase("camera_connect")
         self.status_signal.emit("Connecting to Camera...")
         logging.info("Opening camera...")
+        log_event("CAMERA", "Attempting to open camera", device_index=0)
         cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
         if not cap.isOpened():
             logging.error("Error: Could not open video device.")
+            log_event("CAMERA", "Failed to open camera", error="Device not found")
+            log_error(Exception("Camera not found"), "Failed to open video device", fatal=True)
             self.status_signal.emit("Error: Camera Not Found")
+            set_video_thread_status(False)
             return
         logging.info("Camera opened successfully.")
+        log_event("CAMERA", "Camera opened successfully")
 
         # Set resolution
         cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
         cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
         
         # 3. Initialize Virtual Camera
+        set_app_phase("virtualcam_init")
         self.status_signal.emit("Starting Virtual Camera...")
         try:
             cam = pyvirtualcam.Camera(width=width, height=height, fps=fps, fmt=pyvirtualcam.PixelFormat.BGR)
             logging.info(f"Virtual Camera Active: {cam.device}")
+            log_event("VIRTUALCAM", "Virtual camera started", device=cam.device, width=width, height=height, fps=fps)
             self.status_signal.emit(f"Active: {cam.device}")
         except Exception as e:
             logging.error(f"Virtual Camera Error: {e}")
+            log_error(e, "Virtual camera initialization failed")
             logging.warning("Running in GUI-only mode (no OBS output).")
             self.status_signal.emit("Warning: Virtual Cam Failed (GUI Only)")
             cam = None
 
+        set_app_phase("running")
         logging.info("Starting video loop...")
+        log_event("VIDEO", "Video processing loop started", resolution=f"{width}x{height}", fps=fps)
         
         while self.running:
             try:
@@ -381,9 +417,13 @@ class VideoWorker(QThread):
             
             except Exception as e:
                 logging.error(f"Error in video loop: {e}")
+                log_error(e, "Video loop error")
                 # Don't break, just continue to next frame
                 QThread.msleep(100)
         
+        set_app_phase("shutting_down")
+        set_video_thread_status(False)
+        log_event("VIDEO", "Video processing loop stopped")
         if cam:
             cam.close()
         cap.release()
@@ -393,4 +433,7 @@ class VideoWorker(QThread):
         cap.release()
 
     def stop(self):
+        logging.info("Video thread stop requested")
+        log_event("VIDEO", "Stop requested")
+        set_app_phase("shutting_down")
         self.running = False

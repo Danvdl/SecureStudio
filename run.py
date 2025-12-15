@@ -31,28 +31,48 @@ def check_dependencies():
 
 from PyQt6.QtWidgets import QApplication
 from src.ui.main_window import MainWindow
-from src.utils.config import LOG_LEVEL, LOG_FORMAT
+from src.ui.setup_wizard import needs_setup, run_setup_wizard
+from src.utils.logger import setup_logging, log_event, log_error, mark_clean_exit
 
 def main():
     check_dependencies()
     
-    # Configure Logging
-    logging.basicConfig(
-        level=LOG_LEVEL,
-        format=LOG_FORMAT,
-        handlers=[logging.StreamHandler(sys.stdout)]
-    )
+    # Initialize comprehensive logging system
+    debug_mode = "--debug" in sys.argv
+    setup_logging(debug_mode=debug_mode)
     
-    app = QApplication(sys.argv)
+    log_event("APP", "Application starting", version="2.0.0", debug=debug_mode)
     
-    # Set Application Metadata
-    app.setApplicationName("BlurOBS")
-    app.setApplicationVersion("1.0.0")
-    
-    window = MainWindow()
-    window.show()
-    
-    sys.exit(app.exec())
+    try:
+        app = QApplication(sys.argv)
+        
+        # Set Application Metadata
+        app.setApplicationName("SecureStudio")
+        app.setApplicationVersion("2.0.0")
+        
+        # Check if first-run setup is needed
+        if needs_setup():
+            log_event("APP", "First run - launching setup wizard")
+            if not run_setup_wizard(app):
+                log_event("APP", "Setup wizard cancelled by user")
+                sys.exit(0)
+            log_event("APP", "Setup wizard completed")
+        
+        window = MainWindow()
+        window.show()
+        
+        log_event("APP", "Main window displayed")
+        
+        exit_code = app.exec()
+        
+        # Mark clean exit before exiting
+        mark_clean_exit()
+        log_event("APP", "Application exiting", exit_code=exit_code)
+        sys.exit(exit_code)
+        
+    except Exception as e:
+        log_error(e, "Fatal error during application startup", fatal=True)
+        raise
 
 if __name__ == "__main__":
     main()

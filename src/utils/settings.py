@@ -5,6 +5,12 @@ import logging
 SETTINGS_FILE = "settings.json"
 
 DEFAULT_SETTINGS = {
+    # Setup wizard settings
+    "setup_complete": False,
+    "terms_accepted": False,
+    "share_diagnostic_logs": False,
+    
+    # Video settings
     "obs_width": 1920,
     "obs_height": 1080,
     "fps": 30,
@@ -76,7 +82,10 @@ class SettingsManager:
         except Exception as e:
             logging.error(f"Failed to save settings: {e}")
 
-    def get(self, key):
+    def get(self, key, default=None):
+        """Get a setting value, with optional default if key doesn't exist."""
+        if default is not None:
+            return self.settings.get(key, default)
         return self.settings.get(key, DEFAULT_SETTINGS.get(key))
 
     def set(self, key, value):
