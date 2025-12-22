@@ -69,10 +69,10 @@ pip install pyinstaller
 build.bat
 
 # Or manually:
-pyinstaller BlurOBS.spec --clean
+pyinstaller SecureStudio.spec --clean
 ```
 
-Output: `dist/BlurOBS.exe`
+Output: `dist/SecureStudio.exe`
 
 ---
 
@@ -85,11 +85,11 @@ Output: `dist/BlurOBS.exe`
 
 ---
 
-## � Logging
+## 📝 Logging
 
-BlurOBS includes a comprehensive logging system for debugging and event tracking.
+SecureStudio includes a comprehensive logging system for debugging and event tracking.
 
-**Log Location:** `%USERPROFILE%\.blurobs\logs\`
+**Log Location:** `%USERPROFILE%\.securestudio\logs\`
 
 | Log File | Purpose |
 |----------|---------|
@@ -124,10 +124,10 @@ python run.py --debug
 ## 🏗️ Architecture
 
 ```
-┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│   Webcam    │────▶│  BlurOBS    │────▶│  OBS Studio │
-│             │     │  (AI + Blur)│     │  (Virtual   │
-└─────────────┘     └─────────────┘     │   Camera)   │
+┌─────────────┐     ┌───────────────┐     ┌─────────────┐
+│   Webcam    │────▶│ SecureStudio  │────▶│  OBS Studio │
+│             │     │  (AI + Blur)  │     │  (Virtual   │
+└─────────────┘     └───────────────┘     │   Camera)   │
                                         └─────────────┘
 ```
 
@@ -150,27 +150,7 @@ MIT License - See [LICENSE](LICENSE) for details.
 - [PyVirtualCam](https://github.com/letmaik/pyvirtualcam)
 - [PyQt6](https://www.riverbankcomputing.com/software/pyqt/)
 
-### Phase 3: The "Streamer Experience" (UX) - **Implemented**
-**Goal:** Features that make the app safe and trustworthy for live broadcasting.
 
-**The "Confidence" Switch:**
-*   Add a logic check: If the Local Tracker confidence drops below 50% (object moves too fast), instantly revert to the YOLO Box (safety fallback).
-
-**Class Selector:**
-*   Add a simple "Settings" menu in PyQt6 allowing the user to toggle what to blur: [x] Cell Phones, [ ] Faces, [ ] Credit Cards (Custom trained YOLO model required for cards).
-
-**The Panic Button:**
-*   Global Hotkey (F12): Instantly blurs the entire screen and pauses the camera.
-
-### Phase 4: Packaging & Release
-**Goal:** A distributable .exe file.
-
-**Dependency Handling:**
-*   Create a `requirements.txt` locking exact versions of `ultralytics` and `pyqt6`.
-
-**Compilation:**
-*   Use Nuitka to compile the Python source into a standalone executable.
-*   Command: `nuitka --standalone --enable-plugin=pyqt6 --follow-imports main.py`
 
 ## Prerequisites
 Before running the application, ensure you have the following installed:

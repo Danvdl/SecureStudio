@@ -1,5 +1,5 @@
 # -*- mode: python ; coding: utf-8 -*-
-# PyInstaller spec file for BlurOBS
+# PyInstaller spec file for SecureStudio
 
 import sys
 from PyInstaller.utils.hooks import collect_data_files, collect_submodules
@@ -69,7 +69,7 @@ exe = EXE(
     a.zipfiles,
     a.datas,
     [],
-    name='BlurOBS',
+    name='SecureStudio',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,

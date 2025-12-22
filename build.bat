@@ -1,6 +1,6 @@
 @echo off
 echo ========================================
-echo BlurOBS Build Script
+echo SecureStudio Build Script
 echo ========================================
 echo.
 
@@ -29,11 +29,11 @@ if not exist "assets" mkdir "assets"
 
 :: Build the executable
 echo.
-echo Building BlurOBS executable...
+echo Building SecureStudio executable...
 echo This may take several minutes...
 echo.
 
-python -m PyInstaller BlurOBS.spec --clean
+python -m PyInstaller SecureStudio.spec --clean
 
 if errorlevel 1 (
     echo.
@@ -47,7 +47,7 @@ echo ========================================
 echo Build Complete!
 echo ========================================
 echo.
-echo Output: dist\BlurOBS.exe
+echo Output: dist\SecureStudio.exe
 echo.
 echo To distribute:
 echo 1. Copy dist\BlurOBS.exe to your distribution folder
